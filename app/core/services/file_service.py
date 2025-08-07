@@ -8,9 +8,13 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, List
+import pandas as pd
 
 from app.core.models.file_info import FileInfo, UploadResult, FileValidationResult
 from app.utils.config import UPLOADS_DIR, ALLOWED_EXTENSIONS, MAX_FILE_SIZE
+from app.utils.logger import setup_logger
+
+logger = setup_logger("file_service")
 
 
 class FileService:
@@ -159,14 +163,79 @@ class FileService:
         try:
             cutoff_date = datetime.now().timestamp() - (days_old * 24 * 60 * 60)
             removed_count = 0
-            
+
             for file_path in UPLOADS_DIR.glob("*"):
                 if file_path.is_file():
                     if file_path.stat().st_mtime < cutoff_date:
                         file_path.unlink()
                         removed_count += 1
-            
+
             return removed_count
-            
+
         except Exception:
             return 0
+
+    async def analyze_file(self, file_path: str) -> Optional[FileInfo]:
+        """Analyse un fichier et retourne ses informations"""
+        try:
+            path = Path(file_path)
+            if not path.exists():
+                logger.error(f"File not found: {file_path}")
+                return None
+
+            # Informations de base
+            file_stat = path.stat()
+            file_size = file_stat.st_size
+
+            # Extraire l'ID du fichier du nom si possible
+            filename_parts = path.name.split('_', 2)
+            if len(filename_parts) >= 3:
+                file_id = filename_parts[1]
+                original_name = filename_parts[2]
+            else:
+                file_id = uuid.uuid4().hex[:8]
+                original_name = path.name
+
+            # Analyser le contenu si c'est un fichier Excel
+            sheets_info = []
+            if path.suffix.lower() in ['.xlsx', '.xls']:
+                try:
+                    # Lire les noms des feuilles
+                    excel_file = pd.ExcelFile(file_path)
+                    sheets_info = [{"name": sheet, "rows": 0, "columns": 0} for sheet in excel_file.sheet_names]
+
+                    # Obtenir des infos basiques sur chaque feuille
+                    for i, sheet_name in enumerate(excel_file.sheet_names):
+                        try:
+                            df = pd.read_excel(file_path, sheet_name=sheet_name, nrows=1)
+                            sheets_info[i]["columns"] = len(df.columns)
+
+                            # Compter les lignes (approximatif)
+                            df_full = pd.read_excel(file_path, sheet_name=sheet_name)
+                            sheets_info[i]["rows"] = len(df_full)
+                        except Exception as e:
+                            logger.warning(f"Could not analyze sheet {sheet_name}: {e}")
+
+                except Exception as e:
+                    logger.error(f"Error analyzing Excel file: {e}")
+
+            file_info = FileInfo(
+                file_id=file_id,
+                original_name=original_name,
+                stored_path=path,
+                file_size=file_size,
+                upload_timestamp=datetime.fromtimestamp(file_stat.st_mtime),
+                file_type="excel" if path.suffix.lower() in ['.xlsx', '.xls'] else "unknown",
+                is_excel=path.suffix.lower() in ['.xlsx', '.xls']
+            )
+
+            # Ajouter les informations des feuilles si disponibles
+            if hasattr(file_info, 'sheets_info'):
+                file_info.sheets_info = sheets_info
+
+            logger.info(f"File analyzed successfully: {original_name}")
+            return file_info
+
+        except Exception as e:
+            logger.error(f"Error analyzing file {file_path}: {e}")
+            return None

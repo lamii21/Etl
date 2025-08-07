@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block title %}Upload - YAZAKI Component Processing System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="text-center mb-5">
+            <i class="fas fa-upload fa-4x text-primary mb-4"></i>
+            <h2 class="mb-4">Upload de fichier</h2>
+            <p class="lead text-muted">
+                Uploadez votre fichier Excel pour commencer le traitement
+            </p>
+        </div>
+
+        <!-- Zone d'upload -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="uploadForm" enctype="multipart/form-data" method="post" action="{{ url_for('upload.upload_file') }}">
+                    <div class="file-drop-zone" id="dropZone">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                        <h5>Glissez-déposez votre fichier ici</h5>
+                        <p class="text-muted">ou cliquez pour sélectionner</p>
+                        <input type="file" id="fileInput" name="file" accept=".xlsx,.xls" style="display: none;">
+                        <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click();">
+                            <i class="fas fa-folder-open me-2"></i>Choisir un fichier
+                        </button>
+                    </div>
+                    <div id="fileInfo" class="mt-3" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-file-excel me-2"></i>
+                            <span id="fileName"></span>
+                            <span id="fileSize" class="text-muted ms-2"></span>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-upload me-2"></i>Uploader le fichier
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Fichiers uploadés -->
+        {% if files %}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-files me-2"></i>Fichiers uploadés</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nom du fichier</th>
+                                <th>Taille</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for file in files %}
+                            <tr>
+                                <td>
+                                    <i class="fas fa-file-excel text-success me-2"></i>
+                                    {{ file.filename }}
+                                </td>
+                                <td>{{ (file.size / 1024 / 1024) | round(2) }} MB</td>
+                                <td>{{ file.modified[:10] }}</td>
+                                <td>
+                                    <a href="{{ url_for('processing.select_sheet', filename=file.filename) }}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-cogs me-1"></i>Traiter
+                                    </a>
+                                    <form method="post" action="{{ url_for('upload.delete_file', filename=file.filename) }}" 
+                                          style="display: inline;" 
+                                          onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                            <i class="fas fa-trash me-1"></i>Supprimer
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+
+    // Drag and drop
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            showFileInfo(files[0]);
+        }
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        if (e.target.files.length > 0) {
+            showFileInfo(e.target.files[0]);
+        }
+    });
+
+    function showFileInfo(file) {
+        fileName.textContent = file.name;
+        fileSize.textContent = `(${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+        fileInfo.style.display = 'block';
+    }
+
+    // Click to select
+    dropZone.addEventListener('click', function() {
+        fileInput.click();
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Erreur {{ error_code }} - YAZAKI Component Processing System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 mx-auto text-center">
+        <div class="mb-5">
+            <i class="fas fa-exclamation-triangle fa-4x text-warning mb-4"></i>
+            <h1 class="display-1 text-muted">{{ error_code }}</h1>
+            <h2 class="mb-4">Oops! Une erreur s'est produite</h2>
+            <p class="lead text-muted">
+                {{ error_message }}
+            </p>
+        </div>
+        
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+            <a href="{{ url_for('main.home') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-home me-2"></i>Retour à l'accueil
+            </a>
+            <button onclick="history.back()" class="btn btn-outline-secondary btn-lg">
+                <i class="fas fa-arrow-left me-2"></i>Page précédente
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -6,10 +6,13 @@ Responsable de l'analyse et la sélection des feuilles Excel
 import json
 import pandas as pd
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 from app.core.models.sheet_info import SheetInfo, SheetAnalysisResult, SheetSelectionResult
 from app.utils.config import UPLOADS_DIR
+from app.utils.logger import setup_logger
+
+logger = setup_logger("sheet_service")
 
 
 class SheetService:
@@ -205,3 +208,117 @@ class SheetService:
             
         except Exception:
             return None
+
+    async def analyze_sheets(self, file_path: str) -> List[SheetInfo]:
+        """Analyse les feuilles d'un fichier Excel (version async)"""
+        try:
+            path = Path(file_path)
+            analysis_result = self.analyze_excel_sheets(path)
+            return analysis_result.sheets
+        except Exception as e:
+            logger.error(f"Error analyzing sheets: {e}")
+            return []
+
+    async def get_sheet_preview(self, file_path: str, sheet_name: str, rows: int = 10) -> Dict[str, Any]:
+        """Obtient un aperçu d'une feuille Excel"""
+        try:
+            df = pd.read_excel(file_path, sheet_name=sheet_name, nrows=rows)
+
+            return {
+                "rows": len(df),
+                "columns": len(df.columns),
+                "column_names": df.columns.tolist(),
+                "data": df.fillna("").astype(str).to_dict('records'),
+                "total_rows_in_sheet": len(pd.read_excel(file_path, sheet_name=sheet_name))
+            }
+        except Exception as e:
+            logger.error(f"Error getting sheet preview: {e}")
+            return {"error": str(e)}
+
+    async def get_sheet_columns(self, file_path: str, sheet_name: str) -> Dict[str, Any]:
+        """Obtient les colonnes d'une feuille Excel"""
+        try:
+            df = pd.read_excel(file_path, sheet_name=sheet_name, nrows=1)
+
+            columns_info = []
+            for col in df.columns:
+                col_info = {
+                    "name": str(col),
+                    "type": str(df[col].dtype),
+                    "sample_values": []
+                }
+
+                # Obtenir quelques valeurs d'exemple
+                try:
+                    sample_df = pd.read_excel(file_path, sheet_name=sheet_name, nrows=5)
+                    sample_values = sample_df[col].dropna().astype(str).tolist()[:3]
+                    col_info["sample_values"] = sample_values
+                except:
+                    pass
+
+                columns_info.append(col_info)
+
+            return {
+                "total_columns": len(df.columns),
+                "columns": columns_info
+            }
+        except Exception as e:
+            logger.error(f"Error getting sheet columns: {e}")
+            return {"error": str(e)}
+
+    async def validate_sheet(self, file_path: str, sheet_name: str) -> Dict[str, Any]:
+        """Valide une feuille Excel pour le traitement"""
+        try:
+            df = pd.read_excel(file_path, sheet_name=sheet_name)
+
+            # Validation basique
+            validation_result = {
+                "is_valid": True,
+                "issues": [],
+                "warnings": [],
+                "stats": {
+                    "rows": len(df),
+                    "columns": len(df.columns),
+                    "empty_cells": int(df.isnull().sum().sum()),
+                    "data_density": 0.0
+                }
+            }
+
+            # Calculer la densité des données
+            total_cells = len(df) * len(df.columns)
+            empty_cells = df.isnull().sum().sum()
+            if total_cells > 0:
+                validation_result["stats"]["data_density"] = round(
+                    ((total_cells - empty_cells) / total_cells) * 100, 2
+                )
+
+            # Vérifications
+            if len(df) == 0:
+                validation_result["is_valid"] = False
+                validation_result["issues"].append("Sheet is empty")
+
+            if len(df.columns) == 0:
+                validation_result["is_valid"] = False
+                validation_result["issues"].append("No columns found")
+
+            if validation_result["stats"]["data_density"] < 5:
+                validation_result["warnings"].append("Very low data density (< 5%)")
+
+            # Chercher des colonnes PN
+            pn_columns = self._find_pn_columns(df.columns)
+            validation_result["pn_columns_found"] = len(pn_columns)
+            validation_result["pn_columns"] = pn_columns
+
+            if len(pn_columns) == 0:
+                validation_result["warnings"].append("No Part Number columns detected")
+
+            return validation_result
+
+        except Exception as e:
+            logger.error(f"Error validating sheet: {e}")
+            return {
+                "is_valid": False,
+                "issues": [f"Validation error: {str(e)}"],
+                "warnings": [],
+                "stats": {}
+            }

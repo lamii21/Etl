@@ -245,5 +245,107 @@ class EnhancedLookupProcessor:
         
         return best_col, confidence, analysis
 
+    async def process_file(self, input_file: str, sheet_name: str, master_bom_file: str,
+                          project_hint: str = None, processing_id: str = None,
+                          options: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Traite un fichier avec le Master BOM"""
+        try:
+            # Charger les données
+            input_df = pd.read_excel(input_file, sheet_name=sheet_name)
+            master_df = pd.read_excel(master_bom_file)
+
+            logger.info(f"Processing file {input_file} with {len(input_df)} rows")
+
+            # Analyser et suggérer la colonne de projet
+            best_col, confidence, analysis = self.suggest_best_project_column(master_df, project_hint)
+
+            if confidence < 0.5:
+                logger.warning(f"Low confidence ({confidence:.2f}) for project column suggestion")
+
+            # Effectuer le lookup
+            result_df = self.perform_lookup(input_df, master_df, best_col)
+
+            # Sauvegarder le résultat
+            output_dir = Path("storage/processed")
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+            output_filename = f"processed_{timestamp}_{Path(input_file).stem}.xlsx"
+            output_path = output_dir / output_filename
+
+            result_df.to_excel(output_path, index=False)
+
+            # Créer les métadonnées
+            metadata = {
+                "processing_id": processing_id,
+                "input_file": input_file,
+                "sheet_name": sheet_name,
+                "master_bom_file": master_bom_file,
+                "project_column": best_col,
+                "confidence": confidence,
+                "timestamp": pd.Timestamp.now().isoformat(),
+                "stats": {
+                    "input_rows": len(input_df),
+                    "output_rows": len(result_df),
+                    "matches_found": len(result_df.dropna(subset=[col for col in result_df.columns if 'lookup' in col.lower()]))
+                }
+            }
+
+            # Sauvegarder les métadonnées
+            metadata_path = output_path.with_suffix('.json')
+            import json
+            with open(metadata_path, 'w', encoding='utf-8') as f:
+                json.dump(metadata, f, indent=2, ensure_ascii=False)
+
+            return {
+                "success": True,
+                "output_file": str(output_path),
+                "metadata": metadata
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing file: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def analyze_master_bom(self, master_bom_path: str) -> Dict[str, Any]:
+        """Analyse le Master BOM"""
+        try:
+            df = pd.read_excel(master_bom_path)
+
+            analysis = self.analyze_project_columns(df)
+
+            return {
+                "file_path": master_bom_path,
+                "total_rows": len(df),
+                "total_columns": len(df.columns),
+                "analysis": analysis
+            }
+
+        except Exception as e:
+            logger.error(f"Error analyzing Master BOM: {e}")
+            return {"error": str(e)}
+
+    async def suggest_project_columns(self, master_bom_path: str, project_hint: str = None) -> Dict[str, Any]:
+        """Suggère les colonnes de projet"""
+        try:
+            df = pd.read_excel(master_bom_path)
+
+            best_col, confidence, analysis = self.suggest_best_project_column(df, project_hint)
+
+            # Obtenir les top 5 suggestions
+            columns_analysis = analysis.get("columns_analysis", [])
+            top_suggestions = columns_analysis[:5]
+
+            return {
+                "best_column": best_col,
+                "confidence": confidence,
+                "top_suggestions": top_suggestions,
+                "project_hint": project_hint
+            }
+
+        except Exception as e:
+            logger.error(f"Error suggesting columns: {e}")
+            return {"error": str(e)}
+
 # Instance globale du processeur
 enhanced_lookup_processor = EnhancedLookupProcessor()

@@ -380,3 +380,152 @@ def clean_data(df: pd.DataFrame, options: Dict[str, bool] = None) -> Tuple[pd.Da
     report = cleaner.get_cleaning_report()
     
     return cleaned_df, report
+
+    async def analyze_data_quality(self, file_path: str, sheet_name: str) -> Dict[str, Any]:
+        """Analyse la qualité des données d'une feuille"""
+        try:
+            df = pd.read_excel(file_path, sheet_name=sheet_name)
+
+            # Statistiques de base
+            total_cells = len(df) * len(df.columns)
+            empty_cells = df.isnull().sum().sum()
+            data_density = ((total_cells - empty_cells) / total_cells * 100) if total_cells > 0 else 0
+
+            # Analyse des colonnes
+            columns_analysis = []
+            for col in df.columns:
+                col_analysis = {
+                    "name": str(col),
+                    "type": str(df[col].dtype),
+                    "null_count": int(df[col].isnull().sum()),
+                    "null_percentage": round((df[col].isnull().sum() / len(df)) * 100, 2),
+                    "unique_values": int(df[col].nunique()),
+                    "sample_values": df[col].dropna().astype(str).head(3).tolist()
+                }
+                columns_analysis.append(col_analysis)
+
+            # Détection des problèmes
+            issues = []
+            if data_density < 50:
+                issues.append(f"Low data density: {data_density:.1f}%")
+
+            duplicate_rows = df.duplicated().sum()
+            if duplicate_rows > 0:
+                issues.append(f"Found {duplicate_rows} duplicate rows")
+
+            # Colonnes complètement vides
+            empty_columns = [col for col in df.columns if df[col].isnull().all()]
+            if empty_columns:
+                issues.append(f"Found {len(empty_columns)} completely empty columns")
+
+            return {
+                "file_path": file_path,
+                "sheet_name": sheet_name,
+                "stats": {
+                    "rows": len(df),
+                    "columns": len(df.columns),
+                    "total_cells": total_cells,
+                    "empty_cells": int(empty_cells),
+                    "data_density": round(data_density, 2),
+                    "duplicate_rows": int(duplicate_rows)
+                },
+                "columns_analysis": columns_analysis,
+                "issues": issues,
+                "recommendations": self._get_cleaning_recommendations(df)
+            }
+
+        except Exception as e:
+            logger.error(f"Error analyzing data quality: {e}")
+            return {"error": str(e)}
+
+    async def clean_sheet_data(self, file_path: str, sheet_name: str, options: Dict[str, bool]) -> Dict[str, Any]:
+        """Nettoie les données d'une feuille Excel"""
+        try:
+            df = pd.read_excel(file_path, sheet_name=sheet_name)
+
+            # Nettoyer les données
+            cleaned_df, stats = self.clean_dataframe(df, options)
+
+            # Sauvegarder le fichier nettoyé
+            output_dir = Path("storage/processed")
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+            output_filename = f"cleaned_{timestamp}_{Path(file_path).stem}.xlsx"
+            output_path = output_dir / output_filename
+
+            cleaned_df.to_excel(output_path, sheet_name=sheet_name, index=False)
+
+            return {
+                "success": True,
+                "input_file": file_path,
+                "output_file": str(output_path),
+                "sheet_name": sheet_name,
+                "cleaning_stats": stats,
+                "rows_before": len(df),
+                "rows_after": len(cleaned_df),
+                "columns_before": len(df.columns),
+                "columns_after": len(cleaned_df.columns)
+            }
+
+        except Exception as e:
+            logger.error(f"Error cleaning sheet data: {e}")
+            return {"success": False, "error": str(e)}
+
+    async def preview_cleaning(self, file_path: str, sheet_name: str, options: Dict[str, bool]) -> Dict[str, Any]:
+        """Aperçu du nettoyage sans sauvegarder"""
+        try:
+            df = pd.read_excel(file_path, sheet_name=sheet_name)
+
+            # Nettoyer les données (sans sauvegarder)
+            cleaned_df, stats = self.clean_dataframe(df, options)
+
+            # Aperçu des changements
+            preview = {
+                "original_preview": df.head(5).fillna("").astype(str).to_dict('records'),
+                "cleaned_preview": cleaned_df.head(5).fillna("").astype(str).to_dict('records'),
+                "stats": {
+                    "rows_before": len(df),
+                    "rows_after": len(cleaned_df),
+                    "columns_before": len(df.columns),
+                    "columns_after": len(cleaned_df.columns),
+                    "changes_made": stats.get('operations_performed', [])
+                }
+            }
+
+            return preview
+
+        except Exception as e:
+            logger.error(f"Error previewing cleaning: {e}")
+            return {"error": str(e)}
+
+    def _get_cleaning_recommendations(self, df: pd.DataFrame) -> List[str]:
+        """Génère des recommandations de nettoyage"""
+        recommendations = []
+
+        # Vérifier les lignes vides
+        empty_rows = df.isnull().all(axis=1).sum()
+        if empty_rows > 0:
+            recommendations.append(f"Remove {empty_rows} completely empty rows")
+
+        # Vérifier les colonnes vides
+        empty_columns = [col for col in df.columns if df[col].isnull().all()]
+        if empty_columns:
+            recommendations.append(f"Remove {len(empty_columns)} empty columns")
+
+        # Vérifier les doublons
+        duplicates = df.duplicated().sum()
+        if duplicates > 0:
+            recommendations.append(f"Remove {duplicates} duplicate rows")
+
+        # Vérifier les espaces
+        text_columns = df.select_dtypes(include=['object']).columns
+        if len(text_columns) > 0:
+            recommendations.append("Clean whitespace in text columns")
+
+        # Vérifier les noms de colonnes
+        problematic_columns = [col for col in df.columns if ' ' in str(col) or str(col).startswith('Unnamed')]
+        if problematic_columns:
+            recommendations.append("Standardize column names")
+
+        return recommendations

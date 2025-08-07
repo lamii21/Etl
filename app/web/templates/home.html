@@ -1,4 +1,4 @@
-{% extends "base_stable.html" %}
+{% extends "base.html" %}
 
 {% block title %}Accueil - Component Data Processor Stable{% endblock %}
 
@@ -19,15 +19,15 @@
             <div class="col-md-12">
                 <div class="card">
                     <div class="card-body text-center">
-                        <i class="fas fa-{{ 'check-circle' if backend_available else 'exclamation-triangle' }} fa-3x text-{{ 'success' if backend_available else 'danger' }} mb-3"></i>
-                        <h5>System Status</h5>
+                        <i class="fas fa-{{ 'check-circle' if api_status.status == 'healthy' else 'exclamation-triangle' }} fa-3x text-{{ 'success' if api_status.status == 'healthy' else 'danger' }} mb-3"></i>
+                        <h5>Statut du système</h5>
                         <p class="text-muted">
-                            {% if backend_available %}
-                                <span class="badge bg-success fs-6">System Operational</span><br>
-                                Ready for data processing
+                            {% if api_status.status == 'healthy' %}
+                                <span class="badge bg-success fs-6">Système opérationnel</span><br>
+                                Prêt pour le traitement des données
                             {% else %}
-                                <span class="badge bg-danger fs-6">System Unavailable</span><br>
-                                Contact system administrator
+                                <span class="badge bg-danger fs-6">Système indisponible</span><br>
+                                Contactez l'administrateur système
                             {% endif %}
                         </p>
                     </div>
@@ -37,11 +37,11 @@
         
         <!-- Main Actions -->
         <div class="d-grid gap-3 d-md-flex justify-content-md-center mb-5">
-            <a href="{{ url_for('upload_enhanced') }}" class="btn btn-primary btn-lg">
-                <i class="fas fa-cogs me-2"></i>Process My Data
+            <a href="{{ url_for('upload.upload_page') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-cogs me-2"></i>Traiter mes données
             </a>
-            <a href="{{ url_for('results_page') }}" class="btn btn-outline-success btn-lg">
-                <i class="fas fa-download me-2"></i>Get Results
+            <a href="{{ url_for('results.results_page') }}" class="btn btn-outline-success btn-lg">
+                <i class="fas fa-download me-2"></i>Voir les résultats
             </a>
         </div>
         

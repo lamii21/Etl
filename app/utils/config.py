@@ -20,9 +20,12 @@ MASTER_BOM_PATH = DATA_DIR / "Master_BOM_Real.xlsx"
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", 8000))
 
-# Web Configuration  
+# Web Configuration
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
 WEB_PORT = int(os.getenv("WEB_PORT", 5000))
+
+# Debug Mode
+DEBUG_MODE = os.getenv("DEBUG", "False").lower() in ("true", "1", "yes")
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
