@@ -1,0 +1,163 @@
+{% extends "base_stable.html" %}
+
+{% block title %}Accueil - Component Data Processor Stable{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto text-center">
+        <div class="mb-5">
+            <i class="fas fa-cogs fa-4x text-primary mb-4"></i>
+            <h2 class="mb-4">YAZAKI Component Processing System</h2>
+            <p class="lead text-muted">
+                Professional tool to enrich your component data with Master BOM information
+                according to the selected project.
+            </p>
+        </div>
+        
+        <!-- System Status -->
+        <div class="row mb-5">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-{{ 'check-circle' if backend_available else 'exclamation-triangle' }} fa-3x text-{{ 'success' if backend_available else 'danger' }} mb-3"></i>
+                        <h5>System Status</h5>
+                        <p class="text-muted">
+                            {% if backend_available %}
+                                <span class="badge bg-success fs-6">System Operational</span><br>
+                                Ready for data processing
+                            {% else %}
+                                <span class="badge bg-danger fs-6">System Unavailable</span><br>
+                                Contact system administrator
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Actions -->
+        <div class="d-grid gap-3 d-md-flex justify-content-md-center mb-5">
+            <a href="{{ url_for('upload_enhanced') }}" class="btn btn-primary btn-lg">
+                <i class="fas fa-cogs me-2"></i>Process My Data
+            </a>
+            <a href="{{ url_for('results_page') }}" class="btn btn-outline-success btn-lg">
+                <i class="fas fa-download me-2"></i>Get Results
+            </a>
+        </div>
+        
+        <!-- Features -->
+        <div class="row">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-magic fa-3x text-primary mb-3"></i>
+                        <h5>Automatic Suggestion</h5>
+                        <p class="text-muted">
+                            The system automatically suggests the appropriate project
+                            based on your file name for optimal processing.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-search fa-3x text-success mb-3"></i>
+                        <h5>Data Enrichment</h5>
+                        <p class="text-muted">
+                            Your data is enriched with Master BOM information:
+                            status, description, price according to the selected project.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <i class="fas fa-shield-check fa-3x text-info mb-3"></i>
+                        <h5>Secure Processing</h5>
+                        <p class="text-muted">
+                            Your data is processed securely without modifying
+                            the original Master BOM. Complete operation traceability.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- User Guide -->
+        <div class="mt-5">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>How to use the system</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-upload me-2 text-primary"></i>Step 1: Prepare your data</h6>
+                            <ul class="list-unstyled text-muted">
+                                <li>• Excel file (.xlsx or .xls)</li>
+                                <li>• Column with part numbers (PN)</li>
+                                <li>• Column with project information</li>
+                                <li>• Clean and complete data</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-cogs me-2 text-success"></i>Step 2: Processing</h6>
+                            <ul class="list-unstyled text-muted">
+                                <li>• Select the appropriate project</li>
+                                <li>• System enriches your data</li>
+                                <li>• Adds status, description, price</li>
+                                <li>• Generates result file</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="alert alert-info">
+                                <i class="fas fa-lightbulb me-2"></i>
+                                <strong>Tip:</strong> Use "Process My Data" for automatic project suggestion based on your file name.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Support -->
+        <div class="mt-4">
+            <div class="text-center">
+                <p class="text-muted">
+                    <i class="fas fa-question-circle me-2"></i>
+                    Need help? Contact the technical support team
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Animation des cartes au scroll
+    document.addEventListener('DOMContentLoaded', function() {
+        const cards = document.querySelectorAll('.card');
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        });
+        
+        cards.forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.6s, transform 0.6s';
+            observer.observe(card);
+        });
+    });
+</script>
+{% endblock %}

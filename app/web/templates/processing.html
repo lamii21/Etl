@@ -1,0 +1,1155 @@
+{% extends "base_stable.html" %}
+
+{% block title %}Data Processing - YAZAKI System{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sheet-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .sheet-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+
+    .sheet-card.border-primary {
+        border-width: 2px !important;
+    }
+
+    .confidence-high {
+        background-color: #28a745;
+        color: white;
+    }
+
+    .confidence-medium {
+        background-color: #ffc107;
+        color: black;
+    }
+
+    .confidence-low {
+        background-color: #dc3545;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-10 mx-auto">
+        
+        <!-- Step 1: Project Selection -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-project-diagram me-2"></i>Step 1: Project Selection
+                </h4>
+                <small class="text-muted">Choose the project to enrich your data</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <!-- Automatic Suggestion Mode -->
+                        <div class="mb-4">
+                            <h6><i class="fas fa-magic me-2 text-primary"></i>Automatic Suggestion (Recommended)</h6>
+                            <div class="input-group mb-3">
+                                <span class="input-group-text"><i class="fas fa-tag"></i></span>
+                                <input type="text" class="form-control" id="project-hint"
+                                       placeholder="Your project name (ex: FORD_J74_V710_B2_PP_YOTK_00000)">
+                                <button class="btn btn-primary" type="button" onclick="suggestProject()">
+                                    <i class="fas fa-magic me-1"></i>Suggest
+                                </button>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Enter your project name for automatic optimal project suggestion
+                            </small>
+                        </div>
+                        
+                        <!-- Manual Selection Mode -->
+                        <div class="mb-4">
+                            <h6><i class="fas fa-list me-2 text-success"></i>Manual Selection</h6>
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <select class="form-select" id="project-column" name="project_column" required>
+                                        <option value="">-- Loading available projects... --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="button" class="btn btn-info w-100" onclick="showAllProjects()">
+                                        <i class="fas fa-eye me-1"></i>View All
+                                    </button>
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Select the project directly from the list
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <i class="fas fa-cogs fa-3x text-primary mb-3"></i>
+                            <h6>Selected Project</h6>
+                            <div id="selected-project-info" class="p-3 bg-light rounded">
+                                <small class="text-muted">No project selected</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Résultat de suggestion -->
+                <div id="suggestion-result" class="mt-3"></div>
+            </div>
+        </div>
+
+        <!-- Step 2: File Upload -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-upload me-2"></i>Step 2: Upload Your Data
+                </h4>
+                <small class="text-muted">Upload your Excel file with the data to process</small>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="upload-form" action="{{ url_for('upload_file') }}">
+                    <!-- Drop Zone -->
+                    <div class="file-drop-zone mb-4" id="drop-zone">
+                        <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                        <h5>Drag and drop your Excel file here</h5>
+                        <p class="text-muted">or click to select a file</p>
+                        <input type="file" name="file" id="file-input" class="d-none" accept=".xlsx,.xls">
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Accepted formats: .xlsx, .xls (max 100MB)
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- Informations du file sélectionné -->
+                    <div id="file-info" class="alert alert-info d-none">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-file-excel fa-2x me-3"></i>
+                            <div>
+                                <div class="fw-bold" id="file-name"></div>
+                                <div class="small text-muted" id="file-size"></div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" id="clear-file">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Project sélectionné (caché) -->
+                    <input type="hidden" name="project_column" id="selected-project-input">
+                </form>
+            </div>
+        </div>
+
+        <!-- Step 3: Sheet Selection (Multi-sheet files) -->
+        <div class="card mb-4" id="sheet-selection-step" style="display: none;">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>Step 3: Sheet Selection
+                </h4>
+                <small class="text-muted">Your Excel file contains multiple sheets. Select the one to process.</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <h6><i class="fas fa-star me-2 text-success"></i>Recommended Sheet</h6>
+                            <div id="recommended-sheet" class="p-3 bg-light rounded mb-3">
+                                <div class="text-center">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Analyzing sheets...</span>
+                                    </div>
+                                    <p class="mt-2 mb-0">Analyzing Excel sheets...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6><i class="fas fa-list me-2 text-info"></i>All Available Sheets</h6>
+                            <div id="all-sheets" class="row">
+                                <!-- Sheets will be loaded dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <i class="fas fa-file-alt fa-3x text-info mb-3"></i>
+                            <h6>Selected Sheet</h6>
+                            <div id="selected-sheet-info" class="p-3 bg-light rounded">
+                                <small class="text-muted">No sheet selected</small>
+                            </div>
+
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-success w-100" id="confirm-sheet-btn" onclick="confirmSheetSelection()" disabled>
+                                    <i class="fas fa-check me-1"></i>Confirm Sheet
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary w-100 mt-2" onclick="useDefaultSheet()">
+                                    <i class="fas fa-forward me-1"></i>Use First Sheet
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Data Cleaning (Optional) -->
+        <div class="card mb-4" id="cleaning-step" style="display: none;">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-broom me-2"></i>Step 3: Data Cleaning (Optional)
+                </h4>
+                <small class="text-muted">Clean your data before processing for better results</small>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="mb-3">
+                            <h6><i class="fas fa-magic me-2 text-primary"></i>Cleaning Presets</h6>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="cleaning-preset" id="preset-complete" value="all_enabled" checked>
+                                <label class="btn btn-outline-primary" for="preset-complete">
+                                    <i class="fas fa-star me-1"></i>Complete Cleaning
+                                </label>
+
+                                <input type="radio" class="btn-check" name="cleaning-preset" id="preset-basic" value="basic_cleaning">
+                                <label class="btn btn-outline-secondary" for="preset-basic">
+                                    <i class="fas fa-check me-1"></i>Basic Cleaning
+                                </label>
+
+                                <input type="radio" class="btn-check" name="cleaning-preset" id="preset-pn" value="pn_focused">
+                                <label class="btn btn-outline-info" for="preset-pn">
+                                    <i class="fas fa-cog me-1"></i>PN Focused
+                                </label>
+                            </div>
+                            <small class="text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Complete Cleaning recommended for best results
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <h6><i class="fas fa-sliders-h me-2 text-success"></i>Custom Options</h6>
+                            <div class="row" id="cleaning-options">
+                                <!-- Options will be loaded dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <i class="fas fa-broom fa-3x text-warning mb-3"></i>
+                            <h6>Data Quality</h6>
+                            <div id="cleaning-preview" class="p-3 bg-light rounded">
+                                <small class="text-muted">Upload a file to see cleaning preview</small>
+                            </div>
+
+                            <div class="mt-3">
+                                <button type="button" class="btn btn-warning w-100" id="clean-data-btn" onclick="cleanData()" disabled>
+                                    <i class="fas fa-broom me-1"></i>Clean Data
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary w-100 mt-2" onclick="skipCleaning()">
+                                    <i class="fas fa-forward me-1"></i>Skip Cleaning
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cleaning Results -->
+                <div id="cleaning-results" class="mt-4 d-none">
+                    <div class="alert alert-success">
+                        <h6><i class="fas fa-check-circle me-2"></i>Data Cleaned Successfully!</h6>
+                        <div id="cleaning-summary"></div>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-success btn-sm" onclick="proceedToProcessing()">
+                                <i class="fas fa-arrow-right me-1"></i>Proceed to Processing
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="viewCleaningReport()">
+                                <i class="fas fa-chart-bar me-1"></i>View Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Validation and Processing -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-check-circle me-2"></i>Step 4: Validation and Processing
+                </h4>
+                <small class="text-muted">Check your parameters and start processing</small>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-file me-2"></i>File to process</h6>
+                        <div id="validation-file" class="p-3 bg-light rounded">
+                            <small class="text-muted">No file selected</small>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-project-diagram me-2"></i>Selected project</h6>
+                        <div id="validation-project" class="p-3 bg-light rounded">
+                            <small class="text-muted">No project selected</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2 justify-content-center">
+                    <button type="button" class="btn btn-success btn-lg" id="process-btn" onclick="processData()" disabled>
+                        <i class="fas fa-cogs me-2"></i>Process My Data
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="resetAll()">
+                        <i class="fas fa-undo me-2"></i>Reset
+                    </button>
+                    <a href="{{ url_for('results_page') }}" class="btn btn-outline-info">
+                        <i class="fas fa-download me-2"></i>View Results
+                    </a>
+                </div>
+                
+                <!-- Barre de progression -->
+                <div id="progress-container" class="mt-4 d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-bold">Processing en cours...</span>
+                        <span id="progress-text">0%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             id="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Results du processing -->
+                <div id="results-container" class="mt-4 d-none">
+                    <div class="alert alert-success">
+                        <h5><i class="fas fa-check-circle me-2"></i>Processing Terminé avec Success !</h5>
+                        <p class="mb-3">Votre file a été traité avec success. Les files de results sont disponibles :</p>
+                        <div id="output-files-list"></div>
+                        <div class="mt-3">
+                            <a href="{{ url_for('results_page') }}" class="btn btn-success">
+                                <i class="fas fa-download me-2"></i>Download les Results
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guide d'utilisation -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Guide d'Utilisation</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-1 me-2 text-primary"></i>Sélection du Project</h6>
+                        <ul class="small text-muted">
+                            <li>Utilisez la automatic suggestion pour plus de rapidité</li>
+                            <li>Ou sélectionnez manuellement dans la liste</li>
+                            <li>Le project détermine quelles informations seront ajoutées</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-2 me-2 text-success"></i>Upload du File</h6>
+                        <ul class="small text-muted">
+                            <li>File Excel (.xlsx ou .xls) requis</li>
+                            <li>Doit contenir une column avec les numéros de pièces</li>
+                            <li>Drag and drop or click to select</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-4">
+                        <h6><i class="fas fa-3 me-2 text-info"></i>Processing</h6>
+                        <ul class="small text-muted">
+                            <li>Vérifiez vos paramètres avant processing</li>
+                            <li>Le système enrichit vos data avec le Master BOM</li>
+                            <li>Téléchargez le file résultat enrichi</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal pour l'analyse des projects -->
+<div class="modal fade" id="projects-modal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-project-diagram me-2"></i>Projects Disponibles
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="projects-analysis-content">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let selectedProject = null;
+    let allProjects = [];
+    let uploadedFile = null;
+    let uploadedFileId = null;
+    let cleaningOptions = {};
+    let isDataCleaned = false;
+    let availableSheets = [];
+    let selectedSheet = null;
+    let isMultiSheet = false;
+
+    // Gestion du drag & drop
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('dragover');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileSelect();
+        }
+    });
+
+    fileInput.addEventListener('change', handleFileSelect);
+
+    function handleFileSelect() {
+        const file = fileInput.files[0];
+        if (file) {
+            uploadedFile = file;
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            document.getElementById('file-info').classList.remove('d-none');
+
+            // Mettre à jour la validation
+            document.getElementById('validation-file').innerHTML = `
+                <i class="fas fa-file-excel me-2 text-success"></i>
+                <strong>${file.name}</strong><br>
+                <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+            `;
+
+            updateProcessButton();
+
+            // Analyze sheets after file upload
+            analyzeExcelSheets();
+        }
+    }
+
+    document.getElementById('clear-file').addEventListener('click', () => {
+        fileInput.value = '';
+        uploadedFile = null;
+        document.getElementById('file-info').classList.add('d-none');
+        document.getElementById('validation-file').innerHTML = '<small class="text-muted">Aucun file sélectionné</small>';
+        updateProcessButton();
+    });
+
+    // Gestion de la sélection de project
+    document.getElementById('project-column').addEventListener('change', function() {
+        const projectName = this.value;
+        if (projectName) {
+            selectProject(projectName);
+        }
+    });
+
+    function selectProject(projectName) {
+        selectedProject = projectName;
+        document.getElementById('selected-project-input').value = projectName;
+
+        // Mettre à jour l'affichage
+        const projectInfo = allProjects.find(p => p.name === projectName);
+        if (projectInfo) {
+            document.getElementById('selected-project-info').innerHTML = `
+                <i class="fas fa-project-diagram me-2 text-success"></i>
+                <strong>${projectName}</strong><br>
+                <small class="text-muted">${projectInfo.fill_percentage}% rempli</small>
+            `;
+
+            document.getElementById('validation-project').innerHTML = `
+                <i class="fas fa-project-diagram me-2 text-success"></i>
+                <strong>${projectName}</strong><br>
+                <small class="text-muted">${projectInfo.fill_percentage}% de data disponibles</small>
+            `;
+        } else {
+            document.getElementById('selected-project-info').innerHTML = `
+                <i class="fas fa-project-diagram me-2 text-success"></i>
+                <strong>${projectName}</strong>
+            `;
+
+            document.getElementById('validation-project').innerHTML = `
+                <i class="fas fa-project-diagram me-2 text-success"></i>
+                <strong>${projectName}</strong>
+            `;
+        }
+
+        updateProcessButton();
+    }
+
+    function updateProcessButton() {
+        const hasFile = uploadedFile !== null;
+        const hasProject = selectedProject !== null;
+        document.getElementById('process-btn').disabled = !(hasFile && hasProject);
+    }
+
+    // Automatic suggestion
+    async function suggestProject() {
+        const projectHint = document.getElementById('project-hint').value.trim();
+        if (!projectHint) {
+            showError('Veuillez entrer un nom de project');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/suggest-column', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ project_hint: projectHint })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const confidence = Math.round(data.confidence * 100);
+                const confidenceClass = getConfidenceClass(data.confidence);
+
+                document.getElementById('suggestion-result').innerHTML = `
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-lightbulb fa-2x me-3 text-warning"></i>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">Project Suggéré</h6>
+                                <p class="mb-1"><strong>${data.suggested_column}</strong></p>
+                                <p class="mb-0">
+                                    Confiance: <span class="confidence-badge ${confidenceClass}">${confidence}%</span>
+                                </p>
+                            </div>
+                            <button class="btn btn-success" onclick="selectProject('${data.suggested_column}')">
+                                <i class="fas fa-check me-1"></i>Utiliser ce Project
+                            </button>
+                        </div>
+                    </div>
+                `;
+
+                // Sélectionner automatiquement dans la liste déroulante
+                const select = document.getElementById('project-column');
+                if (Array.from(select.options).find(opt => opt.value === data.suggested_column)) {
+                    select.value = data.suggested_column;
+                }
+            } else {
+                showError('Error lors de la suggestion: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error de communication: ' + error.message);
+        }
+    }
+
+    // Afficher tous les projects
+    async function showAllProjects() {
+        try {
+            const response = await fetch('/api/project-columns');
+            const data = await response.json();
+
+            if (data.success) {
+                allProjects = data.columns;
+
+                // Remplir la liste déroulante
+                const select = document.getElementById('project-column');
+                select.innerHTML = '<option value="">-- Sélectionner un project --</option>';
+                data.columns.forEach(project => {
+                    const option = new Option(`${project.name} (${project.fill_percentage}%)`, project.name);
+                    select.appendChild(option);
+                });
+
+            } else {
+                showError('Error lors du loading: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error de communication: ' + error.message);
+        }
+    }
+
+    // Processing des data
+    async function processData() {
+        if (!uploadedFile || !selectedProject) {
+            showError('Please select un file et un project');
+            return;
+        }
+
+        // Afficher la barre de progression
+        document.getElementById('progress-container').classList.remove('d-none');
+        document.getElementById('process-btn').disabled = true;
+
+        try {
+            // 1. Upload du file via le frontend proxy
+            updateProgress(10, 'Upload du file...');
+
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
+
+            const uploadResponse = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!uploadResponse.ok) {
+                throw new Error('Error lors de l\'upload du file');
+            }
+
+            const uploadData = await uploadResponse.json();
+            if (!uploadData.success) {
+                throw new Error(uploadData.message || 'Error lors de l\'upload');
+            }
+
+            updateProgress(50, 'Processing des data...');
+
+            // 2. Processing des data via le frontend proxy
+            const processResponse = await fetch('/api/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    file_id: uploadData.file_id,
+                    filename: uploadData.filename,
+                    project_column: selectedProject
+                })
+            });
+
+            if (!processResponse.ok) {
+                throw new Error('Error lors du processing des data');
+            }
+
+            const processData = await processResponse.json();
+            if (!processData.success) {
+                throw new Error(processData.message || 'Error lors du processing');
+            }
+
+            // Processing terminé avec success
+            updateProgress(100, 'Processing terminé avec success !');
+
+            setTimeout(() => {
+                document.getElementById('progress-container').classList.add('d-none');
+                document.getElementById('results-container').classList.remove('d-none');
+
+                // Afficher les files de résultat
+                const outputFiles = processData.output_files || [];
+                let filesHtml = '';
+
+                if (outputFiles.length > 0) {
+                    outputFiles.forEach(file => {
+                        filesHtml += `
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-file-excel me-2 text-success"></i>
+                                <span class="me-auto">${file.filename}</span>
+                                <a href="/download/${file.filename}" class="btn btn-sm btn-success">
+                                    <i class="fas fa-download me-1"></i>Download
+                                </a>
+                            </div>
+                        `;
+                    });
+                } else {
+                    // Si pas de files dans la réponse, afficher un lien générique
+                    const today = new Date().toISOString().split('T')[0];
+                    filesHtml = `
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-file-excel me-2 text-success"></i>
+                            <span class="me-auto">Update_${today}.xlsx</span>
+                            <a href="/download/Update_${today}.xlsx" class="btn btn-sm btn-success">
+                                <i class="fas fa-download me-1"></i>Download
+                            </a>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('output-files-list').innerHTML = filesHtml;
+
+                // Réactiver le bouton pour un nouveau processing
+                document.getElementById('process-btn').disabled = false;
+
+            }, 1500);
+
+        } catch (error) {
+            console.error('Error de processing:', error);
+            document.getElementById('progress-container').classList.add('d-none');
+            document.getElementById('process-btn').disabled = false;
+            showError('Error lors du processing: ' + error.message);
+        }
+    }
+
+    function resetAll() {
+        // Réinitialiser le file
+        fileInput.value = '';
+        uploadedFile = null;
+        document.getElementById('file-info').classList.add('d-none');
+        document.getElementById('validation-file').innerHTML = '<small class="text-muted">Aucun file sélectionné</small>';
+
+        // Réinitialiser le project
+        selectedProject = null;
+        document.getElementById('project-column').value = '';
+        document.getElementById('project-hint').value = '';
+        document.getElementById('selected-project-input').value = '';
+        document.getElementById('selected-project-info').innerHTML = '<small class="text-muted">Aucun project sélectionné</small>';
+        document.getElementById('validation-project').innerHTML = '<small class="text-muted">Aucun project sélectionné</small>';
+
+        // Réinitialiser les results
+        document.getElementById('suggestion-result').innerHTML = '';
+        document.getElementById('progress-container').classList.add('d-none');
+        document.getElementById('results-container').classList.add('d-none');
+
+        updateProcessButton();
+    }
+
+    // Charger les projects au démarrage
+    document.addEventListener('DOMContentLoaded', function() {
+        showAllProjects();
+    });
+
+    // Fonctions utilitaires
+    function updateProgress(percent, text) {
+        document.getElementById('progress-bar').style.width = percent + '%';
+        document.getElementById('progress-text').textContent = Math.round(percent) + '%';
+        if (text) {
+            document.querySelector('#progress-container .fw-bold').textContent = text;
+        }
+    }
+
+    function getConfidenceClass(confidence) {
+        if (confidence > 0.7) return 'confidence-high';
+        if (confidence > 0.5) return 'confidence-medium';
+        return 'confidence-low';
+    }
+
+    // Data Cleaning Functions
+    function showCleaningStep() {
+        document.getElementById('cleaning-step').style.display = 'block';
+        loadCleaningOptions();
+        updateCleaningPreview();
+    }
+
+    async function loadCleaningOptions() {
+        try {
+            const response = await fetch('/api/cleaning-options');
+            const data = await response.json();
+
+            if (data.success) {
+                cleaningOptions = data.cleaning_options;
+                displayCleaningOptions(data.cleaning_options);
+                setupPresetHandlers(data.presets);
+            } else {
+                showError('Failed to load cleaning options: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error loading cleaning options: ' + error.message);
+        }
+    }
+
+    function displayCleaningOptions(options) {
+        const container = document.getElementById('cleaning-options');
+        let html = '';
+
+        Object.keys(options).forEach(key => {
+            const option = options[key];
+            html += `
+                <div class="col-md-6 mb-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="option-${key}"
+                               ${option.default ? 'checked' : ''} onchange="updateCleaningPreview()">
+                        <label class="form-check-label" for="option-${key}">
+                            <strong>${option.description}</strong>
+                            <br><small class="text-muted">${option.impact}</small>
+                        </label>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function setupPresetHandlers(presets) {
+        document.querySelectorAll('input[name="cleaning-preset"]').forEach(radio => {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    const presetName = this.value;
+                    const preset = presets[presetName];
+
+                    if (preset && preset.options) {
+                        // Update checkboxes based on preset
+                        Object.keys(preset.options).forEach(key => {
+                            const checkbox = document.getElementById(`option-${key}`);
+                            if (checkbox) {
+                                checkbox.checked = preset.options[key];
+                            }
+                        });
+
+                        updateCleaningPreview();
+                    }
+                }
+            });
+        });
+    }
+
+    function updateCleaningPreview() {
+        if (!uploadedFile) return;
+
+        const enabledOptions = [];
+        Object.keys(cleaningOptions).forEach(key => {
+            const checkbox = document.getElementById(`option-${key}`);
+            if (checkbox && checkbox.checked) {
+                enabledOptions.push(cleaningOptions[key].description);
+            }
+        });
+
+        const preview = document.getElementById('cleaning-preview');
+        if (enabledOptions.length > 0) {
+            preview.innerHTML = `
+                <div class="text-start">
+                    <small class="text-success"><strong>${enabledOptions.length} cleaning operations selected:</strong></small>
+                    <ul class="small text-muted mt-1 mb-0">
+                        ${enabledOptions.slice(0, 3).map(op => `<li>${op}</li>`).join('')}
+                        ${enabledOptions.length > 3 ? `<li><em>+${enabledOptions.length - 3} more...</em></li>` : ''}
+                    </ul>
+                </div>
+            `;
+            document.getElementById('clean-data-btn').disabled = false;
+        } else {
+            preview.innerHTML = '<small class="text-muted">No cleaning operations selected</small>';
+            document.getElementById('clean-data-btn').disabled = true;
+        }
+    }
+
+    async function cleanData() {
+        if (!uploadedFileId) {
+            showError('No file uploaded for cleaning');
+            return;
+        }
+
+        // Get selected cleaning options
+        const selectedOptions = {};
+        Object.keys(cleaningOptions).forEach(key => {
+            const checkbox = document.getElementById(`option-${key}`);
+            selectedOptions[key] = checkbox ? checkbox.checked : false;
+        });
+
+        // Show loading state
+        const cleanBtn = document.getElementById('clean-data-btn');
+        const originalText = cleanBtn.innerHTML;
+        cleanBtn.disabled = true;
+        cleanBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Cleaning...';
+
+        try {
+            const response = await fetch(`/api/clean-data/${uploadedFileId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(selectedOptions)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                isDataCleaned = true;
+                displayCleaningResults(data);
+                showSuccess('Data cleaned successfully!');
+            } else {
+                showError('Cleaning failed: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error during cleaning: ' + error.message);
+        } finally {
+            cleanBtn.disabled = false;
+            cleanBtn.innerHTML = originalText;
+        }
+    }
+
+    function displayCleaningResults(data) {
+        const summary = document.getElementById('cleaning-summary');
+        const report = data.cleaning_report;
+
+        summary.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>Before Cleaning:</strong><br>
+                    <small class="text-muted">${data.original_stats.rows} rows, ${data.original_stats.columns} columns</small>
+                </div>
+                <div class="col-md-6">
+                    <strong>After Cleaning:</strong><br>
+                    <small class="text-success">${data.cleaned_stats.rows} rows, ${data.cleaned_stats.columns} columns</small>
+                </div>
+            </div>
+            <div class="mt-2">
+                <small class="text-info">
+                    <i class="fas fa-check-circle me-1"></i>
+                    ${report.summary.issues_fixed} issues fixed,
+                    Quality improvement: ${report.summary.data_quality_improvement}
+                </small>
+            </div>
+        `;
+
+        document.getElementById('cleaning-results').classList.remove('d-none');
+    }
+
+    function skipCleaning() {
+        isDataCleaned = false;
+        proceedToProcessing();
+    }
+
+    function proceedToProcessing() {
+        // Hide cleaning step and show processing step
+        document.getElementById('cleaning-step').style.display = 'none';
+
+        // Update file info if data was cleaned
+        if (isDataCleaned) {
+            const fileInfo = document.getElementById('validation-file');
+            fileInfo.innerHTML = `
+                <i class="fas fa-file-excel me-2 text-success"></i>
+                <strong>${uploadedFile.name}</strong> <span class="badge bg-success">Cleaned</span><br>
+                <small class="text-muted">${(uploadedFile.size / 1024 / 1024).toFixed(2)} MB</small>
+            `;
+        }
+
+        updateProcessButton();
+    }
+
+    function viewCleaningReport() {
+        // This could open a modal with detailed cleaning report
+        alert('Detailed cleaning report feature coming soon!');
+    }
+
+    // Sheet Selection Functions
+    async function analyzeExcelSheets() {
+        if (!uploadedFileId) {
+            // If no file ID yet, we need to upload first
+            await uploadFileForAnalysis();
+        }
+
+        if (!uploadedFileId) {
+            showError('Unable to analyze sheets: file upload failed');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/analyze-sheets/${uploadedFileId}`);
+            const data = await response.json();
+
+            if (data.success) {
+                availableSheets = data.sheets;
+                isMultiSheet = data.total_sheets > 1;
+
+                if (isMultiSheet) {
+                    // Show sheet selection step
+                    displaySheetSelection(data);
+                } else {
+                    // Single sheet, proceed directly
+                    selectedSheet = data.sheets[0].name;
+                    showCleaningStep();
+                }
+            } else {
+                showError('Error analyzing sheets: ' + data.message);
+                // Fallback to cleaning step
+                showCleaningStep();
+            }
+        } catch (error) {
+            showError('Error analyzing sheets: ' + error.message);
+            // Fallback to cleaning step
+            showCleaningStep();
+        }
+    }
+
+    async function uploadFileForAnalysis() {
+        if (!uploadedFile) return;
+
+        try {
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
+
+            const uploadResponse = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (uploadResponse.ok) {
+                const uploadData = await uploadResponse.json();
+                if (uploadData.success) {
+                    uploadedFileId = uploadData.file_id;
+                }
+            }
+        } catch (error) {
+            console.error('Error uploading file for analysis:', error);
+        }
+    }
+
+    function displaySheetSelection(data) {
+        document.getElementById('sheet-selection-step').style.display = 'block';
+
+        // Display recommended sheet
+        const recommendedSheet = data.sheets.find(s => s.name === data.recommended_sheet);
+        if (recommendedSheet) {
+            displayRecommendedSheet(recommendedSheet);
+        }
+
+        // Display all sheets
+        displayAllSheets(data.sheets);
+    }
+
+    function displayRecommendedSheet(sheet) {
+        const container = document.getElementById('recommended-sheet');
+
+        const pnColumns = sheet.pn_columns.length > 0 ?
+            `<br><small class="text-success"><i class="fas fa-check me-1"></i>Contains PN columns: ${sheet.pn_columns.join(', ')}</small>` :
+            '<br><small class="text-muted">No PN columns detected</small>';
+
+        container.innerHTML = `
+            <div class="d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="mb-1">${sheet.name}</h6>
+                    <small class="text-muted">
+                        ${sheet.rows} rows, ${sheet.columns} columns, ${sheet.data_density}% data density
+                    </small>
+                    ${pnColumns}
+                </div>
+                <button class="btn btn-success" onclick="selectSheet('${sheet.name}')">
+                    <i class="fas fa-star me-1"></i>Use Recommended
+                </button>
+            </div>
+        `;
+    }
+
+    function displayAllSheets(sheets) {
+        const container = document.getElementById('all-sheets');
+        let html = '';
+
+        sheets.forEach(sheet => {
+            const isRecommended = sheet.recommended;
+            const hasPN = sheet.pn_columns.length > 0;
+            const isDataSheet = sheet.is_data_sheet;
+
+            let badgeHtml = '';
+            if (isRecommended) badgeHtml += '<span class="badge bg-success me-1">Recommended</span>';
+            if (hasPN) badgeHtml += '<span class="badge bg-info me-1">Has PN</span>';
+            if (!isDataSheet) badgeHtml += '<span class="badge bg-secondary me-1">Non-data</span>';
+
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="card sheet-card ${isRecommended ? 'border-success' : ''}" onclick="selectSheet('${sheet.name}')">
+                        <div class="card-body p-3">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">${sheet.name}</h6>
+                                ${isRecommended ? '<i class="fas fa-star text-success"></i>' : ''}
+                            </div>
+                            <div class="mb-2">
+                                ${badgeHtml}
+                            </div>
+                            <small class="text-muted">
+                                ${sheet.rows} rows, ${sheet.columns} columns<br>
+                                Data density: ${sheet.data_density}%
+                            </small>
+                            ${hasPN ? `<br><small class="text-success">PN columns: ${sheet.pn_columns.join(', ')}</small>` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+    }
+
+    function selectSheet(sheetName) {
+        selectedSheet = sheetName;
+
+        // Update selected sheet info
+        const sheet = availableSheets.find(s => s.name === sheetName);
+        if (sheet) {
+            document.getElementById('selected-sheet-info').innerHTML = `
+                <i class="fas fa-file-alt me-2 text-success"></i>
+                <strong>${sheetName}</strong><br>
+                <small class="text-muted">${sheet.rows} rows, ${sheet.columns} columns</small>
+                ${sheet.pn_columns.length > 0 ? `<br><small class="text-success">PN: ${sheet.pn_columns.join(', ')}</small>` : ''}
+            `;
+        }
+
+        // Enable confirm button
+        document.getElementById('confirm-sheet-btn').disabled = false;
+
+        // Highlight selected sheet
+        document.querySelectorAll('.sheet-card').forEach(card => {
+            card.classList.remove('border-primary', 'bg-light');
+        });
+
+        const selectedCard = Array.from(document.querySelectorAll('.sheet-card')).find(card =>
+            card.onclick.toString().includes(sheetName)
+        );
+        if (selectedCard) {
+            selectedCard.classList.add('border-primary', 'bg-light');
+        }
+    }
+
+    async function confirmSheetSelection() {
+        if (!selectedSheet || !uploadedFileId) {
+            showError('Please select a sheet');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/set-working-sheet/${uploadedFileId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sheet_name: selectedSheet })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showSuccess(`Sheet "${selectedSheet}" selected successfully`);
+
+                // Hide sheet selection and show cleaning step
+                document.getElementById('sheet-selection-step').style.display = 'none';
+                showCleaningStep();
+            } else {
+                showError('Error setting working sheet: ' + data.message);
+            }
+        } catch (error) {
+            showError('Error confirming sheet selection: ' + error.message);
+        }
+    }
+
+    function useDefaultSheet() {
+        if (availableSheets.length > 0) {
+            selectedSheet = availableSheets[0].name;
+            confirmSheetSelection();
+        }
+    }
+</script>
+{% endblock %}

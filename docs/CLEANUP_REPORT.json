@@ -1,0 +1,190 @@
+{
+  "cleanup_date": "2025-08-06",
+  "project_name": "YAZAKI Component Processing System",
+  "architecture": "Clean Architecture",
+  "final_structure": {
+    ".": {
+      "dirs": [
+        "app",
+        "backup_before_cleanup",
+        "data",
+        "docs",
+        "scripts",
+        "storage",
+        "tests"
+      ],
+      "files": [
+        "cleanup_project.py",
+        "demo_clean_architecture.py",
+        "main.py",
+        "Master_BOM_Real.xlsx",
+        "requirements.txt",
+        "Sample_Input_Data.xlsx",
+        "setup_clean_structure.py"
+      ]
+    },
+    ".\\app": {
+      "dirs": [
+        "api",
+        "core",
+        "logs",
+        "static",
+        "storage",
+        "utils",
+        "web"
+      ],
+      "files": []
+    },
+    ".\\app\\api": {
+      "dirs": [
+        "routes"
+      ],
+      "files": [
+        "main.py",
+        "__init__.py"
+      ]
+    },
+    ".\\app\\core": {
+      "dirs": [
+        "models",
+        "processors",
+        "services"
+      ],
+      "files": [
+        "__init__.py"
+      ]
+    },
+    ".\\app\\logs": {
+      "dirs": [],
+      "files": [
+        "yazaki_main_2025-08-06.log"
+      ]
+    },
+    ".\\app\\static": {
+      "dirs": [
+        "css",
+        "images",
+        "js"
+      ],
+      "files": []
+    },
+    ".\\app\\storage": {
+      "dirs": [
+        "uploads"
+      ],
+      "files": []
+    },
+    ".\\app\\utils": {
+      "dirs": [],
+      "files": [
+        "config.py",
+        "logger.py",
+        "__init__.py"
+      ]
+    },
+    ".\\app\\web": {
+      "dirs": [
+        "routes",
+        "templates"
+      ],
+      "files": [
+        "__init__.py"
+      ]
+    },
+    ".\\backup_before_cleanup": {
+      "dirs": [],
+      "files": [
+        "Master_BOM_Real.xlsx",
+        "requirements.txt",
+        "Sample_Input_Data.xlsx"
+      ]
+    },
+    ".\\data": {
+      "dirs": [
+        "samples"
+      ],
+      "files": [
+        "Master_BOM_Real.xlsx"
+      ]
+    },
+    ".\\data\\samples": {
+      "dirs": [],
+      "files": [
+        "Sample_Input_Data.xlsx"
+      ]
+    },
+    ".\\docs": {
+      "dirs": [],
+      "files": [
+        "CLEAN_ARCHITECTURE_SUMMARY.md",
+        "README.md",
+        "USER_GUIDE.md"
+      ]
+    },
+    ".\\scripts": {
+      "dirs": [],
+      "files": [
+        "start_clean_system.py"
+      ]
+    },
+    ".\\storage": {
+      "dirs": [
+        "processed",
+        "temp",
+        "uploads"
+      ],
+      "files": []
+    },
+    ".\\storage\\processed": {
+      "dirs": [],
+      "files": []
+    },
+    ".\\storage\\temp": {
+      "dirs": [],
+      "files": []
+    },
+    ".\\storage\\uploads": {
+      "dirs": [],
+      "files": []
+    },
+    ".\\tests": {
+      "dirs": [
+        "integration",
+        "unit"
+      ],
+      "files": [
+        "test_clean_architecture.py",
+        "__init__.py"
+      ]
+    },
+    ".\\tests\\integration": {
+      "dirs": [],
+      "files": [
+        "__init__.py"
+      ]
+    },
+    ".\\tests\\unit": {
+      "dirs": [],
+      "files": [
+        "__init__.py"
+      ]
+    }
+  },
+  "key_components": {
+    "api": "app/api/ - FastAPI backend refactorisé",
+    "core": "app/core/ - Logique métier et services",
+    "utils": "app/utils/ - Utilitaires communs",
+    "data": "data/ - Master BOM et échantillons",
+    "storage": "storage/ - Stockage organisé",
+    "tests": "tests/ - Tests automatisés",
+    "docs": "docs/ - Documentation"
+  },
+  "benefits": [
+    "Code organisé selon Clean Architecture",
+    "Services métier spécialisés",
+    "Modèles de données structurés",
+    "Logging professionnel",
+    "Tests automatisés",
+    "Documentation complète"
+  ]
+}

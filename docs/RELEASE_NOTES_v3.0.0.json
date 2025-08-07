@@ -1,0 +1,48 @@
+{
+  "version": "3.0.0",
+  "release_date": "2025-08-06T16:57:57.222161",
+  "title": "YAZAKI Component Processing System - Clean Architecture",
+  "type": "major_refactor",
+  "summary": "Complete code refactoring with Clean Architecture implementation",
+  "features": [
+    "Clean Architecture implementation",
+    "Modular code structure",
+    "Professional logging system",
+    "Automated testing framework",
+    "Structured data models",
+    "Specialized business services",
+    "Comprehensive documentation"
+  ],
+  "improvements": [
+    "43+ obsolete files removed",
+    "Code organization and cleanup",
+    "Type safety with dataclasses",
+    "Error handling enhancement",
+    "Development workflow improvement"
+  ],
+  "technical_changes": [
+    "FastAPI backend refactoring",
+    "Service-oriented architecture",
+    "Structured logging implementation",
+    "Test automation setup",
+    "Documentation enhancement"
+  ],
+  "breaking_changes": [
+    "Complete file structure reorganization",
+    "Legacy API endpoints removed",
+    "Old frontend interfaces removed",
+    "Configuration file changes"
+  ],
+  "migration_guide": {
+    "from_legacy": "Use new app/ structure instead of old files",
+    "configuration": "Update to use app/utils/config.py",
+    "api_endpoints": "Refer to new API documentation at /docs",
+    "testing": "Use pytest with new test structure"
+  },
+  "next_steps": [
+    "Implement web interface in app/web/",
+    "Complete processing services",
+    "Add monitoring capabilities",
+    "Configure production deployment"
+  ]
+}
